@@ -1,7 +1,6 @@
 // #![allow(dead_code)]
 // #![allow(unused_variables)]
 use std::{
-    env::var_os,
     path::{Path, PathBuf},
     time::{Duration, SystemTime},
 };
@@ -51,13 +50,19 @@ struct Url {
     pub details: String,
 }
 
-pub async fn get_with_timeout<T: IntoUrl>(url: T, timeout: Duration) -> reqwest::Result<Response> {
+/// Send GET request to `url` with reqwest.
+async fn get_with_timeout<T: IntoUrl>(url: T, timeout: Duration) -> reqwest::Result<Response> {
     Client::builder()
         .timeout(timeout)
         .build()?
         .get(url)
         .send()
         .await
+}
+
+/// Examing whether `timeout` is passed since `time`.
+fn invalidated(time: SystemTime, timeout: Duration) -> bool {
+    SystemTime::now().duration_since(time).unwrap_or_default() > timeout
 }
 
 async fn get_cache_file(name: &Path) -> io::Result<PathBuf> {
@@ -115,11 +120,6 @@ async fn get_mirror_status(
             serde_json::from_reader(File::open(cache_path).await?.into_std().await)?;
         Ok((mirror_status, mtime))
     }
-}
-
-/// Examing whether `timeout` is passed since `time`.
-fn invalidated(time: SystemTime, timeout: Duration) -> bool {
-    SystemTime::now().duration_since(time).unwrap_or_default() > timeout
 }
 
 #[tokio::main]
