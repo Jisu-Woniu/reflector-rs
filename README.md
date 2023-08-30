@@ -9,7 +9,7 @@ A test implementation of reflector — the Arch Linux mirrorlist fetcher — in 
 - JSON serserialization/deserialization with serde
 - Rich CLI support with clap (WIP)
 
-This project is still in early stages, and most features do not work as expected.
+This project is still in early stages, and does not work yet.
 
 ## How to build
 
