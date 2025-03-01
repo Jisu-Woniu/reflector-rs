@@ -1,27 +1,24 @@
 #![allow(dead_code)]
-// #![allow(unused_variables)]
 use std::{
-    ops::Deref,
+    io::{IsTerminal, stdout},
     path::{Path, PathBuf},
     time::{Duration, SystemTime},
 };
 
-use base64::prelude::{Engine, BASE64_URL_SAFE};
+use base64::engine::{Engine, general_purpose::URL_SAFE};
 use clap::Parser;
 use dirs::cache_dir;
 use reqwest::{Client, IntoUrl, Response};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{
-    fs::{create_dir_all, File},
+    fs::{File, create_dir_all},
     io,
 };
 use url::Url;
 
-use lazy_static::lazy_static;
-lazy_static! {
-    static ref DEFAULT_URL: Url = Url::parse("https://archlinux.org/mirrors/status/json/").unwrap();
-}
+use crate::cli::DEFAULT_URL;
+
 mod cli;
 
 // const DEFAULT_CONNECTION_TIMEOUT: Duration =
@@ -96,12 +93,10 @@ async fn get_mirror_status(
     cache_timeout: Duration,
     url: &Url,
 ) -> Result<(MirrorStatus, Option<SystemTime>), GetMirrorStatusError> {
-    let cache_timeout = cache_timeout;
-    let connection_timeout = connection_timeout;
-    let cache_path = (if url == DEFAULT_URL.deref() {
+    let cache_path = (if *url == *DEFAULT_URL {
         get_cache_file(Path::new("mirrorstatus.json")).await
     } else {
-        let filename = BASE64_URL_SAFE.encode(url.as_str()) + ".json";
+        let filename = URL_SAFE.encode(url.as_str()) + ".json";
         get_cache_file(&Path::new(NAME).join(filename)).await
     })?;
 
@@ -144,7 +139,11 @@ fn split_list_args(args: Vec<String>) -> Vec<String> {
 #[tokio::main]
 async fn main() -> Result<(), GetMirrorStatusError> {
     let arguments = cli::Arguments::parse();
-    println!("{:#?}", arguments);
+    if stdout().is_terminal() {
+        println!("{:#?}", arguments);
+    } else {
+        println!("{:?}", arguments);
+    }
     // dbg!(get_mirror_status(None, None, URL).await?.0.urls);
     Ok(())
 }
@@ -154,17 +153,18 @@ mod tests {
 
     use super::*;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_get_mirror_status() -> Result<(), GetMirrorStatusError> {
         async {
-            let mirror_status = get_mirror_status(
-                Duration::from_secs(5),
-                Duration::from_secs(5),
-                DEFAULT_URL.deref(),
-            )
-            .await?
-            .0
-            .urls;
+            let mirror_status: Vec<_> =
+                get_mirror_status(Duration::from_secs(5), Duration::from_secs(5), &DEFAULT_URL)
+                    .await?
+                    .0
+                    .urls
+                    .into_iter()
+                    .filter(|m| m.url.host_str().is_some_and(|x| x.contains("pkgbuild")))
+                    .map(|m| (m.url.to_string(), m.country, m.country_code))
+                    .collect();
             dbg!(mirror_status);
             Ok(())
         }

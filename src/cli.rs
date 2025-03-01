@@ -1,15 +1,14 @@
-use std::ops::Deref;
+use std::{path::PathBuf, sync::LazyLock};
+
+use clap::{Parser, ValueEnum};
+use url::Url;
+
+pub static DEFAULT_URL: LazyLock<Url> =
+    LazyLock::new(|| Url::parse("https://archlinux.org/mirrors/status/json/").unwrap());
+
 const DEFAULT_CONNECTION_TIMEOUT_SECONDS: u64 = 5;
 const DEFAULT_DOWNLOAD_TIMEOUT_SECONDS: u64 = 5;
 const DEFAULT_CACHE_TIMEOUT_SECONDS: u64 = 300;
-
-use clap::{Parser, ValueEnum};
-
-use std::path::PathBuf;
-
-use url::Url;
-
-use crate::DEFAULT_URL;
 
 /// retrieve and filter a list of the latest Arch Linux mirrors
 #[derive(Debug, Parser)]
@@ -34,7 +33,7 @@ pub(crate) struct Arguments {
     /// The URL from which to retrieve the mirror data in JSON format.
     ///
     /// If different from the default, it must follow the same format.
-    #[arg(long, default_value_t = DEFAULT_URL.deref().clone())]
+    #[arg(long, default_value_t = DEFAULT_URL.clone())]
     pub(crate) url: Url,
 
     /// Save the mirrorlist to the given path.
